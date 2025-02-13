@@ -30,8 +30,10 @@ type ReactionEvent = {
 };
 
 export function get_local_reaction_id(rendering_details: EmojiRenderingDetails): string {
-    return [rendering_details.reaction_type, rendering_details.emoji_code].join(",");
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+    return listFormatter.format([rendering_details.reaction_type, rendering_details.emoji_code]);
 }
+
 
 export function current_user_has_reacted_to_emoji(message: Message, local_id: string): boolean {
     update_clean_reactions(message);
@@ -90,7 +92,8 @@ function update_ui_and_send_reaction_ajax(
     // To avoid duplicate requests to the server, we construct a
     // unique request ID combining the message ID and the local ID,
     // which identifies just which emoji to use.
-    const reaction_request_id = [message.id, local_id].join(",");
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+    const reaction_request_id = listFormatter.format([message.id.toString(), local_id]);
     if (waiting_for_server_request_ids.has(reaction_request_id)) {
         return;
     }
@@ -173,59 +176,52 @@ function generate_title(emoji_name: string, user_ids: number[]): string {
         user_ids.filter((user_id) => user_id !== current_user.user_id),
     );
     const current_user_reacted = user_ids.length !== usernames.length;
-
     const colon_emoji_name = ":" + emoji_name + ":";
+
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
 
     if (user_ids.length === 1) {
         if (current_user_reacted) {
-            const context = {
-                emoji_name: colon_emoji_name,
-            };
-            return $t({defaultMessage: "You (click to remove) reacted with {emoji_name}"}, context);
+            return $t(
+                { defaultMessage: "You (click to remove) reacted with {emoji_name}" },
+                { emoji_name: colon_emoji_name }
+            );
         }
-        const context = {
-            emoji_name: colon_emoji_name,
-            username: usernames[0],
-        };
-        return $t({defaultMessage: "{username} reacted with {emoji_name}"}, context);
+        return $t(
+            { defaultMessage: "{username} reacted with {emoji_name}" },
+            { emoji_name: colon_emoji_name, username: usernames[0] }
+        );
     }
 
     if (user_ids.length === 2 && current_user_reacted) {
-        const context = {
-            emoji_name: colon_emoji_name,
-            other_username: usernames[0],
-        };
         return $t(
             {
                 defaultMessage:
                     "You (click to remove) and {other_username} reacted with {emoji_name}",
             },
-            context,
+            { emoji_name: colon_emoji_name, other_username: usernames[0] }
         );
     }
 
-    const context = {
-        emoji_name: colon_emoji_name,
-        comma_separated_usernames: usernames.slice(0, -1).join(", "),
-        last_username: usernames.at(-1),
-    };
+    const formatted_usernames = listFormatter.format(usernames);
+
     if (current_user_reacted) {
         return $t(
             {
                 defaultMessage:
-                    "You (click to remove), {comma_separated_usernames} and {last_username} reacted with {emoji_name}",
+                    "You (click to remove), {formatted_usernames} reacted with {emoji_name}",
             },
-            context,
+            { emoji_name: colon_emoji_name, formatted_usernames }
         );
     }
     return $t(
         {
-            defaultMessage:
-                "{comma_separated_usernames} and {last_username} reacted with {emoji_name}",
+            defaultMessage: "{formatted_usernames} reacted with {emoji_name}",
         },
-        context,
+        { emoji_name: colon_emoji_name, formatted_usernames }
     );
 }
+
 
 // Add a tooltip showing who reacted to a message.
 export function get_reaction_title_data(message_id: number, local_id: string): string {
@@ -707,13 +703,13 @@ function comma_separated_usernames(user_list: number[]): string {
 
     if (current_user_has_reacted) {
         const current_user_index = user_list.indexOf(current_user.user_id);
-        usernames[current_user_index] = $t({
-            defaultMessage: "You",
-        });
+        usernames[current_user_index] = $t({ defaultMessage: "You" });
     }
-    const comma_separated_usernames = usernames.join(", ");
-    return comma_separated_usernames;
+
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+    return listFormatter.format(usernames);
 }
+
 
 export let update_vote_text_on_message = (message: Message): void => {
     // Because whether we display a count or the names of reacting

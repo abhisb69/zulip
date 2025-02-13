@@ -101,13 +101,18 @@ export function normalize_recipients(recipients: string): string {
     // Converts a string listing emails of message recipients
     // into a canonical formatting: emails sorted ASCIIbetically
     // with exactly one comma and no spaces between each.
-    return recipients
+
+    const formattedEmails = recipients
         .split(",")
         .map((s) => s.trim().toLowerCase())
         .filter((s) => s.length > 0)
-        .sort()
-        .join(",");
+        .sort();
+
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+
+    return listFormatter.format(formattedEmails);
 }
+
 
 // Avoid URI decode errors by removing characters from the end
 // one by one until the decode succeeds.  This makes sense if
@@ -426,20 +431,27 @@ export function is_valid_url(url: string, require_absolute = false): boolean {
 // Formats an array of strings as a Internationalized list using the specified language.
 export function format_array_as_list(
     array: string[],
-    style: Intl.ListFormatStyle,
-    type: Intl.ListFormatType,
+    style: Intl.ListFormatStyle = "long",
+    type: Intl.ListFormatType = "conjunction",
 ): string {
-    // If Intl.ListFormat is not supported
-    if (Intl.ListFormat === undefined) {
+    // Return an empty string if the array is empty
+    if (array.length === 0) {
+        return "";
+    }
+
+    // Fallback for environments where Intl.ListFormat is not supported
+    if (typeof Intl.ListFormat !== "function") {
         return array.join(", ");
     }
 
-    // Use Intl.ListFormat to format the array as a Internationalized list.
-    const list_formatter = new Intl.ListFormat(user_settings.default_language, {style, type});
+    // Ensure language setting has a fallback
+    const language = user_settings?.default_language || "en";
 
-    // Return the formatted string.
-    return list_formatter.format(array);
+    // Create a ListFormat instance and format the array
+    return new Intl.ListFormat(language, { style, type }).format(array);
 }
+
+
 
 export function format_array_as_list_with_highlighted_elements(
     array: string[],

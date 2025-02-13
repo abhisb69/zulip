@@ -274,8 +274,9 @@ export function create<ItemType extends {type: string}>(
                     // the draft pills.
                     !funcs.appendPill(pill),
             );
-
-            store.$input.text(drafts.join(", "));
+            // Use Intl.ListFormat for correct string formatting
+            const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+            store.$input.text(listFormatter.format(drafts));
             // when using the `text` insertion feature with jQuery the caret is
             // placed at the beginning of the input field, so this moves it to
             // the end.

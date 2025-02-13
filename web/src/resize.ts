@@ -131,7 +131,7 @@ export function resize_bottom_whitespace(): void {
 
 export function resize_stream_subscribers_list(): void {
     // Calculates the height of the subscribers list in stream settings.
-    // This avoids the stream settings from overflowing the container and
+    // This prevents stream settings from overflowing the container and
     // having a scroll bar.
 
     if ($("#stream_settings").length === 0) {
@@ -147,26 +147,34 @@ export function resize_stream_subscribers_list(): void {
         ".subscription_settings .subscriber_list_settings",
         ".subscription_settings .stream_setting_subsection_title",
     ];
-    const $classes_above_subscribers_list = $subscriptions_info.find(
-        classes_above_subscribers_list.join(", "),
-    );
+
+    // Use Intl.ListFormat for better readability
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+    const formattedSelectors = listFormatter.format(classes_above_subscribers_list);
+
+    const $classes_above_subscribers_list = $subscriptions_info.find(formattedSelectors);
     let total_height_of_classes_above_subscribers_list = 0;
+
     $classes_above_subscribers_list.each(function () {
         const outer_height = $(this).outerHeight(true);
         assert(outer_height !== undefined);
         total_height_of_classes_above_subscribers_list += outer_height;
     });
+
     const subscribers_list_header_height = 30;
     const margin_between_tab_switcher_and_add_subscribers_title = 20;
     const subscriptions_info_height = $subscriptions_info.height();
     assert(subscriptions_info_height !== undefined);
+
     const subscribers_list_height =
         subscriptions_info_height -
         total_height_of_classes_above_subscribers_list -
         subscribers_list_header_height -
         margin_between_tab_switcher_and_add_subscribers_title;
+
     $("html").css("--stream-subscriber-list-max-height", `${subscribers_list_height}px`);
 }
+
 
 export function resize_stream_filters_container(): void {
     const h = get_new_heights();

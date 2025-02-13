@@ -226,16 +226,20 @@ export function get_pm_emails(message: Message | MessageWithBooleans): string {
         })
         .sort();
 
-    return emails.join(", ");
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+    return listFormatter.format(emails);
 }
+
 
 export function get_pm_full_names(user_ids: number[]): string {
     user_ids = people.sorted_other_user_ids(user_ids);
     const names = people.get_display_full_names(user_ids);
     const sorted_names = names.sort(util.make_strcmp());
 
-    return sorted_names.join(", ");
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+    return listFormatter.format(sorted_names);
 }
+
 
 export function convert_raw_message_to_message_with_booleans(
     message: RawMessage,

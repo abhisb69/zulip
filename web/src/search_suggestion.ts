@@ -840,6 +840,7 @@ function get_operator_suggestions(last: NarrowTerm): Suggestion[] {
 type SuggestionLine = Suggestion[];
 function suggestion_search_string(suggestion_line: SuggestionLine): string {
     const search_strings = [];
+    
     for (const suggestion of suggestion_line) {
         if (suggestion.search_string !== "") {
             // This is rendered as "Direct messages" and we want to make sure
@@ -850,8 +851,13 @@ function suggestion_search_string(suggestion_line: SuggestionLine): string {
             search_strings.push(suggestion.search_string);
         }
     }
-    return search_strings.join(" ");
+
+    // Use Intl.ListFormat for better readability
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+
+    return listFormatter.format(search_strings);
 }
+
 
 function suggestions_for_current_filter(): SuggestionLine[] {
     if (narrow_state.stream_id() && narrow_state.topic() !== undefined) {
@@ -940,39 +946,45 @@ class Attacher {
 
     get_result(): Suggestion[] {
         return this.result.map((suggestion_line) => {
-            const description_htmls = [];
-            const search_strings = [];
+            const description_htmls: string[] = [];
+            const search_strings: string[] = [];
+    
             for (const suggestion of suggestion_line) {
                 if (suggestion.description_html !== "") {
-                    // To be able to render multiple user pills per suggestion,
-                    // we generate the user pill html here and concatenate it
-                    // together with other parts of the suggestion for the
-                    // Suggestion html.
+                    // To render multiple user pills per suggestion,
+                    // generate the user pill HTML here and concatenate it
+                    // with other parts of the suggestion for the Suggestion HTML.
                     if (suggestion.is_people) {
                         const user_pills_html = suggestion.users
-                            .map((user) => render_user_pill(user))
-                            .join(" ");
-                        description_htmls.push(suggestion.description_html + user_pills_html);
+                            .map((user) => render_user_pill(user));
+    
+                        const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+    
+                        description_htmls.push(suggestion.description_html + listFormatter.format(user_pills_html));
                     } else {
                         description_htmls.push(suggestion.description_html);
                     }
                 }
-
+    
                 if (suggestion.search_string !== "") {
                     search_strings.push(suggestion.search_string);
                 }
             }
+    
+            const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+    
             return {
-                description_html: description_htmls.join(", "),
-                search_string: search_strings.join(" "),
+                description_html: listFormatter.format(description_htmls),
+                search_string: listFormatter.format(search_strings),
                 // This is a full suggestion line of multiple suggestions,
                 // some of which might be people, but people can be suggested
-                // alongside non-people, so we do the html conversion for user
+                // alongside non-people, so we do the HTML conversion for user
                 // suggestions already by this point.
                 is_people: false,
             };
         });
     }
+    
 }
 
 export function get_search_result(

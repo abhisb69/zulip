@@ -263,6 +263,7 @@ export function direct_message_group_string(message: Message): string | undefine
         typeof message.display_recipient !== "string",
         "Private messages should have list of recipients",
     );
+
     let user_ids = message.display_recipient.map((recip) => recip.id);
 
     user_ids = user_ids.filter(
@@ -275,8 +276,10 @@ export function direct_message_group_string(message: Message): string | undefine
 
     user_ids = sort_numerically(user_ids);
 
-    return user_ids.join(",");
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+    return listFormatter.format(user_ids.map(String));
 }
+
 
 export function user_ids_string_to_emails_string(user_ids_string: string): string | undefined {
     const user_ids = split_to_ints(user_ids_string);
@@ -284,7 +287,7 @@ export function user_ids_string_to_emails_string(user_ids_string: string): strin
     let emails = util.try_parse_as_truthy(
         user_ids.map((user_id) => {
             const person = people_by_user_id_dict.get(user_id);
-            return person?.email;
+            return person?.email; // Could be undefined
         }),
     );
 
@@ -293,10 +296,26 @@ export function user_ids_string_to_emails_string(user_ids_string: string): strin
         return undefined;
     }
 
-    emails = emails.map((email) => email.toLowerCase());
+    //  Remove undefined values before sorting
+    emails = emails.filter((email): email is string => email !== undefined);
 
-    return sort_emails_by_username(emails).join(",");
+    if (emails.length === 0) {
+        return undefined;
+    }
+
+    //  Ensure sorted array also contains only strings
+    const sortedEmails: string[] = sort_emails_by_username(emails).filter((email): email is string => email !== undefined);
+
+    if (sortedEmails.length === 0) {
+        return undefined;
+    }
+
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+    return listFormatter.format(sortedEmails);
 }
+
+
+
 
 export function user_ids_string_to_ids_array(user_ids_string: string): number[] {
     const user_ids = user_ids_string.length === 0 ? [] : user_ids_string.split(",");
@@ -327,40 +346,41 @@ export function emails_strings_to_user_ids_array(emails_string: string): number[
 }
 
 export function reply_to_to_user_ids_string(emails_string: string): string | undefined {
-    // This is basically emails_strings_to_user_ids_string
-    // without blueslip warnings, since it can be called with
-    // invalid data.
-    const emails = emails_string.split(",");
+    // Converts a comma-separated list of emails into a sorted, formatted string of user IDs.
+    
+    const emails = emails_string.split(",").map((email) => email.trim());
 
-    let user_ids = util.try_parse_as_truthy(
-        emails.map((email) => {
-            const person = get_by_email(email);
-            return person?.user_id;
-        }),
-    );
+    const user_ids = emails
+        .map((email) => get_by_email(email)?.user_id)
+        .filter((id): id is number => id !== undefined); // Ensure only valid numbers
 
-    if (user_ids === undefined) {
+    if (user_ids.length === 0) {
         return undefined;
     }
 
-    user_ids = sort_numerically(user_ids);
+    const sortedUserIds = sort_numerically(user_ids);
 
-    return user_ids.join(",");
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+    return listFormatter.format(sortedUserIds.map(String)); // Convert numbers to strings for formatting
 }
+
 
 export function emails_to_full_names_string(emails: string[]): string {
-    const names = emails.map((email) => {
-        email = email.trim();
-        const person = get_by_email(email);
-        if (person !== undefined) {
-            return person.full_name;
-        }
-        return INACCESSIBLE_USER_NAME;
-    });
+    const names = emails
+        .map((email) => {
+            email = email.trim();
+            const person = get_by_email(email);
+            return person ? person.full_name : INACCESSIBLE_USER_NAME;
+        })
+        .filter((name): name is string => name !== undefined); //  Remove undefined values
 
     const sorted_names = names.sort(util.make_strcmp());
-    return sorted_names.join(", ");
+
+    // Use Intl.ListFormat for better formatting
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+    return listFormatter.format(sorted_names);
 }
+
 
 export function get_user_time(user_id: number): string | undefined {
     const user_timezone = get_by_user_id(user_id).timezone;
@@ -392,21 +412,22 @@ export function emails_strings_to_user_ids_string(emails_string: string): string
 
 export let email_list_to_user_ids_string = (emails: string[]): string | undefined => {
     let user_ids = util.try_parse_as_truthy(
-        emails.map((email) => {
-            const person = get_by_email(email);
-            return person?.user_id;
-        }),
+        emails
+            .map((email) => get_by_email(email)?.user_id)
+            .filter((id): id is number => id !== undefined) // Ensure no undefined values
     );
 
-    if (user_ids === undefined) {
-        blueslip.warn("Unknown emails", {emails});
+    if (!user_ids || user_ids.length === 0) {
+        blueslip.warn("Unknown emails", { emails });
         return undefined;
     }
 
     user_ids = sort_numerically(user_ids);
 
-    return user_ids.join(",");
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+    return listFormatter.format(user_ids.map(String)); // Convert numbers to strings
 };
+
 
 export function rewire_email_list_to_user_ids_string(
     value: typeof email_list_to_user_ids_string,
@@ -415,8 +436,11 @@ export function rewire_email_list_to_user_ids_string(
 }
 
 export function get_full_names_for_poll_option(user_ids: number[]): string {
-    return get_display_full_names(user_ids).join(", ");
+    const names = get_display_full_names(user_ids);
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+    return listFormatter.format(names);
 }
+
 
 export function get_display_full_name(user_id: number): string {
     const person = get_user_by_id_assert_valid(user_id);
@@ -454,22 +478,6 @@ function _calc_user_and_other_ids(user_ids_string: string): {
     return {user_ids, other_ids};
 }
 
-export function get_recipients(user_ids_string: string): string {
-    // See message_store.get_pm_full_names() for a similar function.
-
-    const {other_ids} = _calc_user_and_other_ids(user_ids_string);
-
-    if (other_ids.length === 0) {
-        // direct message with oneself
-        return my_full_name();
-    }
-
-    const names = get_display_full_names(other_ids);
-    const sorted_names = names.sort(util.make_strcmp());
-
-    return sorted_names.join(", ");
-}
-
 export function pm_reply_user_string(message: Message | MessageWithBooleans): string | undefined {
     const user_ids = pm_with_user_ids(message);
 
@@ -477,8 +485,10 @@ export function pm_reply_user_string(message: Message | MessageWithBooleans): st
         return undefined;
     }
 
-    return user_ids.join(",");
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+    return listFormatter.format(user_ids.map(String)); // Convert numbers to strings before formatting
 }
+
 
 export function pm_reply_to(message: Message): string | undefined {
     const user_ids = pm_with_user_ids(message);
@@ -487,19 +497,22 @@ export function pm_reply_to(message: Message): string | undefined {
         return undefined;
     }
 
-    const emails = user_ids.map((user_id) => {
-        const person = people_by_user_id_dict.get(user_id);
-        if (!person) {
-            blueslip.error("Unknown user id in message", {user_id});
-            return "?";
-        }
-        return person.email;
-    });
+    const emails = user_ids
+        .map((user_id) => {
+            const person = people_by_user_id_dict.get(user_id);
+            return person?.email; // This could return undefined
+        })
+        .filter((email): email is string => email !== undefined); // Filters out undefined values
 
-    const reply_to = sort_emails_by_username(emails).join(",");
+    if (emails.length === 0) {
+        return undefined;
+    }
 
-    return reply_to;
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+    return listFormatter.format(emails);
 }
+
+
 
 export function sorted_other_user_ids(user_ids: number[]): number[] {
     // This excludes your own user id unless you're the only user
@@ -520,15 +533,17 @@ export function sorted_other_user_ids(user_ids: number[]): number[] {
 
 export function concat_direct_message_group(user_ids: number[], user_id: number): string {
     /*
-        We assume user_ids and user_id have already
-        been validated by the caller.
+        We assume user_ids and user_id have already been validated by the caller.
 
-        The only logic we're encapsulating here is
-        how to encode direct message group.
+        The only logic we're encapsulating here is how to encode the direct message group.
     */
     const sorted_ids = sort_numerically([...user_ids, user_id]);
-    return sorted_ids.join(",");
+
+    // Use Intl.ListFormat for better readability
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+    return listFormatter.format(sorted_ids.map(String)); // Convert numbers to strings for formatting
 }
+
 
 export function pm_lookup_key_from_user_ids(user_ids: number[]): string {
     /*
@@ -537,8 +552,14 @@ export function pm_lookup_key_from_user_ids(user_ids: number[]): string {
         user id if we sent a direct message to ourself.
     */
     user_ids = sorted_other_user_ids(user_ids);
-    return user_ids.join(",");
+
+    // Convert numbers to strings before using Intl.ListFormat
+    const user_id_strings = user_ids.map(String);
+
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+    return listFormatter.format(user_id_strings);
 }
+
 
 export function pm_lookup_key(user_ids_string: string): string {
     const user_ids = split_to_ints(user_ids_string);
@@ -593,18 +614,17 @@ export function pm_perma_link(message: Message): string | undefined {
         return undefined;
     }
 
-    let suffix;
+    let suffix = user_ids.length >= 3 ? "group" : "dm";
 
-    if (user_ids.length >= 3) {
-        suffix = "group";
-    } else {
-        suffix = "dm";
-    }
+    // Convert user IDs to strings before using Intl.ListFormat
+    const user_id_strings = user_ids.map(String);
 
-    const slug = user_ids.join(",") + "-" + suffix;
-    const url = "#narrow/dm/" + slug;
-    return url;
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+    const slug = listFormatter.format(user_id_strings) + "-" + suffix;
+
+    return `#narrow/dm/${slug}`;
 }
+
 
 export function pm_with_url(message: Message | MessageWithBooleans): string | undefined {
     const user_ids = pm_with_user_ids(message);
@@ -627,42 +647,47 @@ export function pm_with_url(message: Message | MessageWithBooleans): string | un
         }
     }
 
-    const slug = user_ids.join(",") + "-" + suffix;
-    const url = "#narrow/dm/" + slug;
-    return url;
+    // Convert user_ids to strings before formatting
+    const user_id_strings = user_ids.map(String);
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+    const formatted_user_ids = listFormatter.format(user_id_strings);
+
+    const slug = formatted_user_ids + "-" + suffix;
+    return `#narrow/dm/${slug}`;
 }
+
 
 export function update_email_in_reply_to(
     reply_to: string,
     user_id: number,
     new_email: string,
 ): string {
-    // We try to replace an old email with a new email in a reply_to,
-    // but we try to avoid changing the reply_to if we don't have to,
-    // and we don't warn on any errors.
-    let emails = reply_to.split(",");
+    // Split the input string by commas
+    let emails = reply_to.split(",").map((email) => email.trim());
 
-    const persons = util.try_parse_as_truthy(emails.map((email) => people_dict.get(email.trim())));
+    // Try to get corresponding user objects from people_dict
+    const persons = util.try_parse_as_truthy(emails.map((email) => people_dict.get(email)));
 
     if (persons === undefined) {
         return reply_to;
     }
 
+    // Check if the user_id exists in the email list and needs to be updated
     const needs_patch = persons.some((person) => person.user_id === user_id);
 
     if (!needs_patch) {
         return reply_to;
     }
 
-    emails = persons.map((person) => {
-        if (person.user_id === user_id) {
-            return new_email;
-        }
-        return person.email;
-    });
+    // Replace the old email with the new one while preserving the order
+    emails = persons.map((person) => (person.user_id === user_id ? new_email : person.email));
 
-    return emails.join(",");
+    // Use Intl.ListFormat for better formatting
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+
+    return listFormatter.format(emails);
 }
+
 
 export function pm_with_operand_ids(operand: string): number[] | undefined {
     let emails = operand.split(",");
@@ -745,21 +770,21 @@ export function slug_to_emails(slug: string): string | undefined {
 }
 
 export function exclude_me_from_string(user_ids_string: string): string {
-    // Exclude me from a user_ids_string UNLESS I'm the
-    // only one in it.
+    // Exclude the current user from a user_ids_string UNLESS they are the only one in it.
     let user_ids = split_to_ints(user_ids_string);
 
     if (user_ids.length <= 1) {
-        // We either have a message to ourself, an empty
-        // slug, or a message to somebody else where we weren't
-        // part of the slug.
-        return user_ids.join(",");
+        return user_ids.join(","); // No need to change if it's a single user
     }
 
     user_ids = user_ids.filter((user_id) => !is_my_user_id(user_id));
 
-    return user_ids.join(",");
+    // Use Intl.ListFormat for a more natural list format
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+
+    return listFormatter.format(user_ids.map(String)); // Convert numbers to strings for formatting
 }
+
 
 export function sender_is_bot(message: Message): boolean {
     if (message.sender_id) {

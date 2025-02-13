@@ -77,21 +77,24 @@ export function get_pygments_typeahead_list_for_settings(query: string): Map<str
     if (clean_query !== "") {
         language_labels.set(
             clean_query,
-            $t({defaultMessage: "Custom language: {query}"}, {query: clean_query}),
+            $t({ defaultMessage: "Custom language: {query}" }, { query: clean_query }),
         );
     }
 
     const playground_pygment_langs = [...map_language_to_playground_info.keys()];
     for (const lang of playground_pygment_langs) {
-        language_labels.set(lang, $t({defaultMessage: "Custom language: {query}"}, {query: lang}));
+        language_labels.set(lang, $t({ defaultMessage: "Custom language: {query}" }, { query: lang }));
     }
 
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+
     for (const [key, values] of map_pygments_pretty_name_to_aliases) {
-        language_labels.set(key, key + " (" + values.join(", ") + ")");
+        language_labels.set(key, `${key} (${listFormatter.format(values)})`);
     }
 
     return language_labels;
 }
+
 
 export function initialize({
     playground_data,

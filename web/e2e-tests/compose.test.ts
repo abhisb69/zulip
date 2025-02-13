@@ -133,9 +133,11 @@ async function test_narrow_to_private_messages_with_cordelia(page: Page): Promis
 
 async function test_send_multirecipient_pm_from_cordelia_pm_narrow(page: Page): Promise<void> {
     const recipients = ["cordelia@zulip.com", "othello@zulip.com"];
+    const listFormatter = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
     const multiple_recipients_pm = "A direct message group to check spaces";
+
     await common.send_message(page, "private", {
-        recipient: recipients.join(", "),
+        recipient: listFormatter.format(recipients),
         content: multiple_recipients_pm,
     });
 
@@ -156,12 +158,15 @@ async function test_send_multirecipient_pm_from_cordelia_pm_narrow(page: Page): 
     assert.ok(pm !== null);
     await pm.click();
     await page.waitForSelector("#compose-textarea", {visible: true});
+
     const recipient_internal_emails = [
         await common.get_internal_email_from_name(page, common.fullname.cordelia),
         await common.get_internal_email_from_name(page, common.fullname.othello),
-    ].join(",");
-    await common.pm_recipient.expect(page, recipient_internal_emails);
+    ].filter(Boolean) as string[]; 
+    
+    await common.pm_recipient.expect(page, listFormatter.format(recipient_internal_emails));    
 }
+
 
 const markdown_preview_button = "#compose .markdown_preview";
 const markdown_preview_hide_button = "#compose .undo_markdown_preview";

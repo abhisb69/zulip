@@ -11,9 +11,10 @@ const list_selectors = [
 
 export function inside_list(e: JQuery.KeyDownEvent | JQuery.KeyPressEvent): boolean {
     const $target = $(e.target);
-    const in_list = $target.closest(list_selectors.join(", ")).length > 0;
+    const in_list = $target.closest(list_selectors.join(",")).length > 0;
     return in_list;
 }
+
 
 export function go_down(e: JQuery.KeyDownEvent | JQuery.KeyPressEvent): void {
     const $target = $(e.target);
